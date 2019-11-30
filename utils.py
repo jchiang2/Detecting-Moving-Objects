@@ -33,5 +33,38 @@ def drawPatches(img, patches):
         patch = np.array(patch, np.int32)
         patch = patch.reshape((-1,1,2))
         cv2.fillPoly(img,[patch],color)
-        
+
     return img
+
+def padd_patches(img, pts, h, w):
+    '''
+    Padd cropped patch
+    Args
+        img: target gray scale image that will be cropped (h, w)
+        pts: numpy array of patch coordinates (4, 2)
+        h: the padding height (>= than cropped image height)
+        w: the padding width (>= than cropped image width)
+    Return
+        cropped and padded patch
+    '''
+    padded = np.zeros((h, w), np.uint8)
+    rect = cv2.boundingRect(pts)
+    x,y,w,h = rect
+    cropped = img[y:y+h, x:x+w].copy()
+
+    # make mask
+    pts = pts - pts.min(axis=0)
+
+    mask = np.zeros(cropped.shape[:2], np.uint8)
+    cv2.drawContours(mask, [pts], -1, (1, 1, 1), -1, cv2.LINE_AA)
+
+    # do bit-op
+    masked = cv2.bitwise_and(cropped, cropped, mask=mask)
+    padded[0:masked.shape[0], 0:masked.shape[1]] = masked
+
+#     cv2.imshow('padded', padded)
+#     cv2.waitKey(10)
+    return padded
+
+# coor = np.array([[600, 500],[600, 1000],[1300,1500],[1500, 200]])
+# padd_patches(img1, coor, 1500, 1000)
