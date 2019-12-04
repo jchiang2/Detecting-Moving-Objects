@@ -7,6 +7,7 @@ import math
 from utils import *
 from utils_epipolar import *
 from utils_patches import *
+from utils_hog import *
 from config import _C as cfg
 
 PI = math.pi
@@ -22,36 +23,51 @@ def main(args):
     angle = cfg.ANGLE
     overlap = cfg.OVERLAP
 
+    ## Load images
     images = os.listdir(img_dir)
-    im_path1 = os.path.join(img_dir, images[0])
-    im_path2 = os.path.join(img_dir, images[1])
+    im_path1 = os.path.join(img_dir, images[3])
+    im_path2 = os.path.join(img_dir, images[4])
+    print("Loading image:", im_path1)
+    print("Loading image:", im_path2)
+    img1 = cv2.imread(im_path1,0) # reference image # left image
+    img2 = cv2.imread(im_path2,0) # support image # right image
 
-    img1 = cv2.imread(im_path1,0) # queryimage # left image
-    img2 = cv2.imread(im_path2,0) # trainimage # right image
 
-    # Calculate matching points and epipoles
-    F, pts1, pts2, lines1, lines2 = loadData(img1, img2, save_dir)
-    epipole1 = getEpipole(lines1)
-    epipole2 = getEpipole(lines2)
+    ## Calculate matching feature points and epipoles
+    F, pts1, pts2, epipole1, epipole2 = loadData(cfg, im_path1, im_path2)
+    # epipole1 = getEpipole(lines1)
+    # epipole2 = getEpipole(lines2)
 
-    # Get radial lines from epipole
-    numLines = int(360 / angle)
-    if numLines % 2 == 0:
+
+    ## Get radial lines (equally spaced) crossing epipole
+    numLines = int(180 / angle)
+    if numLines % 2 == 0:  # Even number of lines results in division by zero
         numLines += 1
-    lines1, lines2, radialPts = getRadialLines(numLines, epipole1, F)
-    lines1 = find_valid_lines(lines1, img1)
+    lines1, radialPts = getRadialLines(numLines, epipole1)
+    lines1, valid_pts = find_valid_lines(img1, lines1, radialPts)
+    lines2 = find_corr_lines(valid_pts, F)
 
-    # Visualize lines
-    img1, img2 = drawLines(img1, img2, lines1, lines2)
+
+    ## Visualize lines
+    # img1, img2 = drawLines(img1, img2, lines1, lines2)
+
+
+    ## Get vertices along lines
+    img1, patch_points1 = getVertices(img1, epipole1, lines1, height)
+    img2, patch_points2 = getVertices(img2, epipole2, lines2, height)
+
+
+    ## Group vertices into patches
+    patch_groups1 = getPatches(cfg, img1, patch_points1)
+    patch_groups2 = getPatches(cfg, img2, patch_points2, isSupport=True)
+
+    ## Perform HOG feature matching for patches
+    matchPatches(img1, img2, patch_groups1, patch_groups2)
+
+    ## Visualize all patches
+    # img1 = drawPatches(img1, patch_groups1)
+    # img2 = drawPatches(img2, patch_groups2)
     
-    # Get points along lines and visualize
-    img1, points = getPoints(img1, epipole1, lines1, 100)
-
-    # Sample points into patches
-    patches = getPatches(cfg, img1, points)
-
-    img1 = drawPatches(img1, patches)
-
     plt.subplot(121),plt.imshow(img1)
     plt.subplot(122),plt.imshow(img2)
     plt.show()

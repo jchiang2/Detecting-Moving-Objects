@@ -6,29 +6,53 @@ import os
 
 PI = math.pi
 
+def calcArea(img, patches):
+    '''
+    Calculates the area of a patch.
+    Args:
+        img: (numpy array h x w x 3) Origin image
+        patches: (list N x 4 x 2) List of patches
+    returns:
+        area: (int) Total area of the patches
+    '''
+    canvas = np.zeros(img.shape, "uint8")
+    for patch in patches:
+        p = p.reshape((-1,1,2))
+        p = p.astype(int)
+        cv2.fillPoly(canvas,[p],(255,255,255))
+    canvas_grey = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+    area = cv2.countNonZero(canvas_grey)
+    return area
+
 def calcIoU(img, patch1, patch2):
+    '''
+    Calculates the IoU of two patches.
+    Args:
+        img: (numpy array h x w x 3) Origin image
+        patch1(patch2): (numpy array 4 x 2) A patch represented by its four vertices
+    returns:
+        IoU: (float) The intersection-over-union
+    '''
     patch1 = patch1.reshape((-1,1,2))
     patch2 = patch2.reshape((-1,1,2))
 
-    canvas1 = np.zeros(img.shape, "uint8")
-    cv2.fillPoly(canvas1,[patch1],(255,255,255))
-    canvas1_grey = cv2.cvtColor(canvas1, cv2.COLOR_BGR2GRAY)
-    area1 = cv2.countNonZero(canvas1_grey)
+    area1 = calcArea(img, [patch1])
+    area2 = calcArea(img, [patch2])
+    total = calcArea(img, [patch1, patch2])
 
-    canvas2 = np.zeros(img.shape, "uint8")
-    cv2.fillPoly(canvas2,[patch2],(255,255,255))
-    canvas2_grey = cv2.cvtColor(canvas2, cv2.COLOR_BGR2GRAY)
-    area2 = cv2.countNonZero(canvas2_grey)
-
-    cv2.fillPoly(canvas1,[patch2],(255,255,255))
-    canvas3_grey = cv2.cvtColor(canvas1, cv2.COLOR_BGR2GRAY)
-    total = cv2.countNonZero(canvas3_grey)
-
-    IoU = area1 + area2 - total / total
+    IoU = (area1 + area2 - total) / total
 
     return IoU
 
 def getRadialPts(center, numPts):
+    '''
+    Returns a set of equally spaced radial points from a center point.
+    Args:
+        center: (numpy array 1 x 3) Coordinates of the center point
+        numPts: (int) Number of desired circular points
+    returns:
+        radialPts: (numpy array (numPts + 1) x 3) Array of homogenous coordinates of radial points
+    '''
     radialPts = np.ones((numPts + 1, 3))
     for step in range(0,numPts+1):
         X = center[0] + math.cos(2 * PI / numPts * step) * 100
@@ -36,24 +60,32 @@ def getRadialPts(center, numPts):
         radialPts[step, :2] = np.array([X, Y])
     return radialPts
 
-def getRadialLines(numLines, center, F):
+def getRadialLines(numLines, center):
+    '''
+    Returns a set of equally spaced coincidental lines.
+    Args:
+        numLines: (int) Number of desired radial lines
+        center: (numpy array 1 x 3) Homogenous coordinates of the center point
+    returns:
+        lines: (numpy array N x 3) List of N equally spaced, coincidental lines
+        radialPts: (numpy array (numLines + 1) x 2) Array of 2D radial points
+    '''
     radialPts = getRadialPts(center, numLines)
-    lines1 = np.cross(center, radialPts)
-
+    lines = np.cross(center, radialPts)
     radialPts = radialPts[:, :2]
-    lines2 = cv2.computeCorrespondEpilines(radialPts.reshape(-1,1,2), 1, F)
-    lines2 = lines2.reshape(-1, 3)
+    return lines, radialPts
 
-    return lines1, lines2, radialPts
-
-def calcDelta(angle, height, overlap=0.66):
-    ratio = (1 - overlap) / (1 + overlap)
-    deltaLen = height * ratio
-    deltaAng = angle * ratio
-    return deltaLen, deltaAng
-
-def find_valid_lines(lines, img):
-    lines = lines.T
+def find_valid_lines(img, lines, pts):
+    '''
+    Returns lines visible in the image.
+    Args:
+        img: (numpy array h x w) Reference image (grayscale)
+        lines: (numpy array N x 3) Set of N epipolar lines
+        pts: (numpy array N x 2) Set of N corresponding points on the lines
+    returns:
+        valid_lines: (numpy array M x 3) Set of M valid epipolar lines
+        valid_pts: (numpy array M x 2) Set of M valid points
+    '''
     r,c = img.shape
     bound_down = np.array([0, -1, r])
     bound_up = np.array([0, 1, 0])
@@ -61,13 +93,13 @@ def find_valid_lines(lines, img):
     bound_right = np.array([-1, 0, c])
     bounds = np.array([bound_up, bound_down, bound_left, bound_right])
 
-    intersect_up = np.cross(lines.T, bound_up)
+    intersect_up = np.cross(lines, bound_up)
     intersect_up /= np.repeat(intersect_up[:, 2], 3).reshape(-1, 3)
-    intersect_down = np.cross(lines.T, bound_down)
+    intersect_down = np.cross(lines, bound_down)
     intersect_down /= np.repeat(intersect_down[:, 2], 3).reshape(-1, 3)
-    intersect_left = np.cross(lines.T, bound_left)
+    intersect_left = np.cross(lines, bound_left)
     intersect_left /= np.repeat(intersect_left[:, 2], 3).reshape(-1, 3)
-    intersect_right = np.cross(lines.T, bound_right)
+    intersect_right = np.cross(lines, bound_right)
     intersect_right /= np.repeat(intersect_right[:, 2], 3).reshape(-1, 3)
     
     valid_up = (intersect_up[:, 0] >= 0) & (intersect_up[:, 0] < c)
@@ -76,16 +108,36 @@ def find_valid_lines(lines, img):
     valid_right = (intersect_right[:, 1] >= 0) & (intersect_right[:, 1] < r)
 
     valid_mask = valid_up | valid_down | valid_left | valid_right
-    valid_lines = lines.T[valid_mask, :]
+    valid_lines = lines[valid_mask, :]
+    valid_pts = pts[valid_mask, :]
     
-    return valid_lines
+    return valid_lines, valid_pts
 
-def getPoints(img, center, lines, delta, overlap=0.66):
-    # TODO
-    # lines = lines.T
+def find_corr_lines(radialPts, F):
+    '''
+    Finds correspoinding epipolar lines in a support image.
+    Args:
+        radialPts: radialPts: (numpy array (numPts + 1) x 2) Array of 2D radial points
+        F: (numpy array 3 x 3) Fundamental matrix
+    returns:
+        lines: (numpy array N x 3) Corresponding epipolar lines in the 2D image
+    '''
+    lines = cv2.computeCorrespondEpilines(radialPts.reshape(-1,1,2), 1, F)
+    lines = lines.reshape(-1, 3)
+    return lines
+
+def getVertices(img, center, lines, delta):
+    '''
+    Returns the set of all possible patch vertices in an image.
+    Args:
+        img: (numpy array h x w x 3) Origin image
+        center: (numpy array 1 x 3) Homogenous coordinates of the center point
+        lines: (numpy array N x 3) Lines in the 2D image
+        delta: (float) Radial distance between points
+    returns:
+        points_all: (list N x M_n x 2) Set of M_n points along Nth line
+    '''
     h, w = img.shape[:2]
-    if len(img.shape) == 2:
-        img = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
     center = np.copy(center)
     vertices = np.array([[0,0],[w,0],[w,h],[0,h]])
     diff = vertices - center[:2]
@@ -100,58 +152,78 @@ def getPoints(img, center, lines, delta, overlap=0.66):
     for i in range(deltaX.shape[0]):
         inc = np.array([deltaX[i], deltaY[i]])
         step = 0
+        count = -1
         points_on_line = []
         while (True):
-            color = tuple(np.random.randint(0,255,3).tolist())
-
             deltaXY = inc * step
-            
-            if (delta * step > maxDist):
+
+            if count == step:
                 break
+            if (delta * step > maxDist):
+                count = step
+                step = 0
+                inc = -inc
 
             point = center[:2] + deltaXY
             points_on_line.append(point)
-
-            ptX, ptY = map(int, point)
-            img = cv2.circle(img, (ptX,ptY), 20, color, -1)
-
             step += 1
         points_all.append(points_on_line)
-    return img, points_all
+    return points_all
 
 def isInImage(img, patch):
+    '''
+    Checks if a patch is within an image.
+    Args:
+        img: (numpy array h x w x 3) Origin image 
+        patch: (numpy array 4 x 2) A patch represented by its four vertices
+    returns:
+        bool: True if patch is in image
+    '''
     h, w = img.shape[:2]
-    minX = np.min(patch[:,0])
-    maxX = np.max(patch[:,0])
-    minY = np.min(patch[:,1])
-    maxY = np.max(patch[:,1])
+    minX, minY = np.amin(patch, axis=0)
+    maxX, maxY = np.amax(patch, axis=0)
 
     if minX < 0 or minY < 0 or maxX > w or maxY > h:
         return False
     return True
 
-def getPatches(cfg, img, points):
-    # points : M x N_m x 2 list for N_m points along the Mth line
+def getPatches(cfg, img, points, isSupport=False):
+    '''
+    Samples vertices into patches.
+    Args:
+        cfg: Config object
+        img: (numpy array h x w x 3) Origin image
+        points: (list N x M_n x 2) Set of M_n points along Nth line
+        isSupport: (bool) True if using support image (sample different widths)
+    returns:
+        patch_groups: (list N x M x 4 x 2) Patch groups for N pairs of epipolar lines, 
+                      each with M patches
+    '''
     overlap = cfg.OVERLAP
-    patch_height = int((1 + overlap) / (1 - overlap))
-    patch_angle = int((1 + overlap) / (1 - overlap))
+    patch_height = int(np.ceil((1 + overlap) / (1 - overlap)))
+    patch_angle = int(np.ceil((1 + overlap) / (1 - overlap)))
     
-    patches = []
+    patch_groups = []
     numOfLines = len(points)
     for i in range(numOfLines):
         pointsAlong_top = points[i]
         pointsAlong_bot = points[(i + patch_angle) % numOfLines]
+        patches = []
         for j in range(len(pointsAlong_top)):
-            pt1 = pointsAlong_top[j]
-            pt2 = pointsAlong_top[(j + patch_height) % len(pointsAlong_top)]
-            pt3 = pointsAlong_bot[(j + patch_height) % len(pointsAlong_bot)]
-            pt4 = pointsAlong_bot[j]
+            if isSupport:
+                patch_var = [-1, 0, 1]
+            else:
+                patch_var = [0]
+            for var in patch_var:
+                pt1 = pointsAlong_top[j]
+                pt2 = pointsAlong_top[(j + patch_height + var) % len(pointsAlong_top)]
+                pt3 = pointsAlong_bot[(j + patch_height + var) % len(pointsAlong_bot)]
+                pt4 = pointsAlong_bot[j]
 
-            patch = np.array([pt1, pt2, pt3, pt4])
-            if isInImage(img, patch):
-                patches.append(patch)
-    
-    with open(os.path.join(cfg.SAVE_PATH, "patches.pkl"), 'wb') as output:
-        pickle.dump(patches, output, -1)
+                patch = np.array([pt1, pt2, pt3, pt4])
+                if isInImage(img, patch):
+                    patches.append(patch)
+        patch_groups.append(patches)
 
-    return patches
+    return patch_groups
+

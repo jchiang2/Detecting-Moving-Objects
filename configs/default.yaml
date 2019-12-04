@@ -1,5 +1,5 @@
 IMAGE_PATH: "images/scene1"
 SAVE_PATH: "results"
 HEIGHT: 100
-ANGLE: 10
+ANGLE: 1
 OVERLAP: 0.66

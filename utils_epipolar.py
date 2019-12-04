@@ -3,6 +3,15 @@ import numpy as np
 import os
 
 def detectMatchingPoints(img1, img2):
+    '''
+    Get matching SIFT feature points in two images.
+    Args:
+        img1: (numpy array h x w) Reference image in grayscale
+        img2: (numpy array h x w) Support image in grayscale
+    returns:
+        pts1: (list N x 2) List of N matching points in the reference image
+        pts2: (list N x 2) List of N matching points in the support image
+    '''
     sift = cv2.xfeatures2d.SIFT_create()
     # find the keypoints and descriptors with SIFT
     kp1, des1 = sift.detectAndCompute(img1,None)
@@ -25,34 +34,72 @@ def detectMatchingPoints(img1, img2):
     return pts1, pts2
 
 def calcFundamental(pts1, pts2):
+    '''
+    Calculates fundamental matrix.
+    Args:
+        pts1: (list N x 2) N matching points in reference image
+        pts2: (list N x 2) N matching points in support image
+    returns:
+        F: (numpy array 3 x 3) Fundamental matrix
+        pts1_inlier: (numpy array M x 2) Inliers in reference image
+        pts2_inlier: (numpy array M x 2) Inliers in support image
+    '''
     pts1 = np.int32(pts1)
     pts2 = np.int32(pts2)
     F, mask = cv2.findFundamentalMat(pts1,pts2,cv2.FM_LMEDS)
     # We select only inlier points
-    pts1 = pts1[mask.ravel()==1]
-    pts2 = pts2[mask.ravel()==1]
-    return F, pts1, pts2
+    pts1_inlier = pts1[mask.ravel()==1]
+    pts2_inlier = pts2[mask.ravel()==1]
+    return F, pts1_inlier, pts2_inlier
 
-def getEpilines(F, pts1, pts2):
-    lines1 = cv2.computeCorrespondEpilines(pts2.reshape(-1,1,2), 2, F)
+def getEpipoles(F, pts1, pts2):
+    '''
+    Calculates coordinates of epipoles.
+    Args:
+        F: (numpy array 3 x 3) Fundamental matrix
+        pts1: (numpy array M x 2) Inliers in reference image
+        pts2: (numpy array M x 2) Inliers in support image
+    returns:
+        epipole1: (numpy array 1 x 3) Epipole in reference image in homogenous coordinates
+        epipole2: (numpy array 1 x 3) Epipole in support image in homogenous coordinates
+    '''
+    lines1 = cv2.computeCorrespondEpilines(pts2[:2].reshape(-1,1,2), 2, F)
     lines1 = lines1.reshape(-1,3)
-    lines2 = cv2.computeCorrespondEpilines(pts1.reshape(-1,1,2), 1, F)
+    epipole1 = np.cross(lines1[0], lines1[1])
+    epipole1 = epipole1 / epipole1[2]
+    lines2 = cv2.computeCorrespondEpilines(pts1[:2].reshape(-1,1,2), 1, F)
     lines2 = lines2.reshape(-1,3)
-    return lines1, lines2
+    epipole2 = np.cross(lines2[0], lines2[1])
+    epipole2 = epipole2 / epipole2[2]
+    return epipole1, epipole2
 
-def loadData(img1, img2, save_dir):
-    outfile = os.path.join(save_dir, "epipolar_data.npz")
-    if (os.path.exists(outfile)):
+def loadData(cfg, im_path1, im_path2):
+    '''
+    Loads epipolar data if available, otherwise calls operations to get data
+    Args:
+        cfg: Config class
+        im_path1: (str) Path to reference image
+        im_path2: (str) Path to support image
+    returns:
+        F: (numpy array 3 x 3) Fundamental matrix
+        pts1: (numpy array N x 2) Matching points in reference image
+        pts2: (numpy array N x 2) Matching points in support image
+        epipole1: (numpy array 1 x 3) Epipole in reference image in homogenous coordinates
+        epipole2: (numpy array 1 x 3) Epipole in support image in homogenous coordinates
+    '''
+    img1 = cv2.imread(im_path1,0)  # reference image (left image)
+    img2 = cv2.imread(im_path2,0)  # support image (right image)
+
+    folder = os.path.basename(os.path.dirname(im_path1))
+    ind1 = int(os.path.splitext(os.path.basename(im_path1))[0])
+    ind2 = int(os.path.splitext(os.path.basename(im_path2))[0])
+    outfile = os.path.join(cfg.SAVE_PATH, "epipolar_data_{}_{}_{}.npz".format(folder, ind1, ind2))
+    if (os.path.exists(outfile)):  # Load data if available
         data = np.load(outfile)
-        F, pts1, pts2, lines1, lines2 = data['F'], data['pts1'], data['pts2'], data['lines1'], data['lines2']
-    else:
+        F, pts1, pts2, epipole1, epipole2 = data['F'], data['pts1'], data['pts2'], data['epipole1'], data['epipole2']
+    else:  # Calculate data
         pts1, pts2 = detectMatchingPoints(img1, img2)
         F, pts1, pts2 = calcFundamental(pts1, pts2)
-        lines1, lines2 = getEpilines(F, pts1, pts2)
-        np.savez(outfile, F=F, pts1=pts1, pts2=pts2, lines1=lines1, lines2=lines2)
-    return F, pts1, pts2, lines1, lines2
-
-def getEpipole(lines):
-    epipole = np.cross(lines[0], lines[1])
-    epipole = epipole / epipole[2]
-    return epipole
+        epipole1, epipole2 = getEpipoles(F, pts1, pts2)
+        np.savez(outfile, F=F, pts1=pts1, pts2=pts2, epipole1=epipole1, epipole2=epipole2)
+    return F, pts1, pts2, epipole1, epipole2

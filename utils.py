@@ -4,7 +4,8 @@ import os
 import argparse
 
 def parse_args():
-    """ Parse command line arguments.
+    """
+    Parse command line arguments.
     """
     parser = argparse.ArgumentParser(description="Visualize epipolar lines")
     parser.add_argument(
@@ -12,11 +13,24 @@ def parse_args():
     return parser.parse_args()
 
 def drawLines(img1, img2, lines1, lines2):
+    '''
+    Visualize lines on images.
+    Args:
+        img1: (numpy array h x w) Reference image (grayscale)
+        img2: (numpy array h x w) Support image (grayscale)
+        lines1: (list N x 3) List of N lines in image 1 
+        lines2: (list N x 3) List of N corresponding lines in image 2
+    returns:
+        img1: Reference image with lines
+        img2: Support image with lines
+    '''
     r,c = img1.shape
+    img1 = img1.copy()
+    img2 = img2.copy()
     img1 = cv2.cvtColor(img1,cv2.COLOR_GRAY2BGR)
     img2 = cv2.cvtColor(img2,cv2.COLOR_GRAY2BGR)
 
-    for line1, line2 in zip(lines1, lines2):
+    for i, (line1, line2) in enumerate(zip(lines1, lines2)):
         color = tuple(np.random.randint(0,255,3).tolist())
         x0,y0 = map(int, [0, -line1[2]/line1[1]])
         x1,y1 = map(int, [c, -(line1[2]+line1[0]*c)/line1[1]])
@@ -26,45 +40,36 @@ def drawLines(img1, img2, lines1, lines2):
         img2 = cv2.line(img2, (x0,y0), (x1,y1), color, 10)
     return img1, img2
 
-def drawPatches(img, patches):
-    for patch in patches:
-        color = tuple(np.random.randint(0,255,3).tolist())
+def drawPatches(img, patch_groups):
+    '''
+    Visualize patches on image.
+    Args:
+        img: (numpy array h x w x c) Color image to draw patches on
+        patch_groups: (list N x M x 4 x 2) Patch groups for N pairs of epipolar lines, 
+                      each with M patches
+    returns:
+        img: Image with patches
+    '''
+    for patches in patch_groups:
+        for patch in patches:
+            color = tuple(np.random.randint(0,255,3).tolist())
 
-        patch = np.array(patch, np.int32)
-        patch = patch.reshape((-1,1,2))
-        cv2.fillPoly(img,[patch],color)
-
+            patch = np.array(patch, np.int32)
+            patch = patch.reshape((-1,1,2))
+            cv2.fillPoly(img,[patch],color)
     return img
 
-def padd_patches(img, pts, h, w):
+def drawPatch(img, patch):
     '''
-    Padd cropped patch
-    Args
-        img: target gray scale image that will be cropped (h, w)
-        pts: numpy array of patch coordinates (4, 2)
-        h: the padding height (>= than cropped image height)
-        w: the padding width (>= than cropped image width)
-    Return
-        cropped and padded patch
+    Visualize a single given patch.
+    Args:
+        img: (numpy array h x w x c) Color image to draw patch on
+        patch: (list 4 x 2) A single patch represented by four 2D vertice coordinates
+    returns:
+        img: Image with patch
     '''
-    padded = np.zeros((h, w), np.uint8)
-    rect = cv2.boundingRect(pts)
-    x,y,w,h = rect
-    cropped = img[y:y+h, x:x+w].copy()
-
-    # make mask
-    pts = pts - pts.min(axis=0)
-
-    mask = np.zeros(cropped.shape[:2], np.uint8)
-    cv2.drawContours(mask, [pts], -1, (1, 1, 1), -1, cv2.LINE_AA)
-
-    # do bit-op
-    masked = cv2.bitwise_and(cropped, cropped, mask=mask)
-    padded[0:masked.shape[0], 0:masked.shape[1]] = masked
-
-#     cv2.imshow('padded', padded)
-#     cv2.waitKey(10)
-    return padded
-
-# coor = np.array([[600, 500],[600, 1000],[1300,1500],[1500, 200]])
-# padd_patches(img1, coor, 1500, 1000)
+    color = tuple(np.random.randint(0,255,3).tolist())
+    patch = np.array(patch, np.int32)
+    patch = patch.reshape((-1,1,2))
+    cv2.fillPoly(img,[patch],color)
+    return img
