@@ -63,23 +63,23 @@ def getEpipoles(F, pts1, pts2):
         epipole1: (numpy array 1 x 3) Epipole in reference image in homogenous coordinates
         epipole2: (numpy array 1 x 3) Epipole in support image in homogenous coordinates
     '''
-    lines1 = cv2.computeCorrespondEpilines(pts2[:2].reshape(-1,1,2), 2, F)
+    lines1 = cv2.computeCorrespondEpilines(pts2.reshape(-1,1,2), 2, F)
     lines1 = lines1.reshape(-1,3)
     epipole1 = np.cross(lines1[0], lines1[1])
     epipole1 = epipole1 / epipole1[2]
-    lines2 = cv2.computeCorrespondEpilines(pts1[:2].reshape(-1,1,2), 1, F)
+    lines2 = cv2.computeCorrespondEpilines(pts1.reshape(-1,1,2), 1, F)
     lines2 = lines2.reshape(-1,3)
     epipole2 = np.cross(lines2[0], lines2[1])
     epipole2 = epipole2 / epipole2[2]
     return epipole1, epipole2
 
-def loadData(cfg, im_path1, im_path2):
+def loadData(cfg, img1, img2, outfile=None):
     '''
     Loads epipolar data if available, otherwise calls operations to get data
     Args:
         cfg: Config class
-        im_path1: (str) Path to reference image
-        im_path2: (str) Path to support image
+        img1: (numpy array h x w) Reference image in grayscale
+        img2: (numpy array h x w) Support image in grayscale
     returns:
         F: (numpy array 3 x 3) Fundamental matrix
         pts1: (numpy array N x 2) Matching points in reference image
@@ -87,13 +87,6 @@ def loadData(cfg, im_path1, im_path2):
         epipole1: (numpy array 1 x 3) Epipole in reference image in homogenous coordinates
         epipole2: (numpy array 1 x 3) Epipole in support image in homogenous coordinates
     '''
-    img1 = cv2.imread(im_path1,0)  # reference image (left image)
-    img2 = cv2.imread(im_path2,0)  # support image (right image)
-
-    folder = os.path.basename(os.path.dirname(im_path1))
-    ind1 = int(os.path.splitext(os.path.basename(im_path1))[0])
-    ind2 = int(os.path.splitext(os.path.basename(im_path2))[0])
-    outfile = os.path.join(cfg.SAVE_PATH, "epipolar_data_{}_{}_{}.npz".format(folder, ind1, ind2))
     if (os.path.exists(outfile)):  # Load data if available
         data = np.load(outfile)
         F, pts1, pts2, epipole1, epipole2 = data['F'], data['pts1'], data['pts2'], data['epipole1'], data['epipole2']

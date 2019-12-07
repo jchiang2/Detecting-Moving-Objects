@@ -62,17 +62,20 @@ def getHOGDescriptor(img, patch_group, h, w):
     returns:
         descriptor_set: (list N x K) List of N descriptors of length K
     '''
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).copy()
+    if len(img.shape) == 3:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).copy()
     hog = cv2.HOGDescriptor()
 
     descriptor_set = []
-    for patch in patch_group:
+    print("Number of patches:", len(patch_group))
+    for i, patch in enumerate(patch_group):
         patch = np.array(patch)
         patch = patch.astype(np.int32)
         padded = pad_patch(img, patch, h, w)
         descriptor = hog.compute(padded)
-        print(len(descriptor))
+        print("Patch {}:".format(i), end="\r", flush=True)
         descriptor_set.append(descriptor[:,0])
+
     return descriptor_set
 
 def matchPatches(img1, img2, patch_groups1, patch_groups2):
@@ -84,8 +87,9 @@ def matchPatches(img1, img2, patch_groups1, patch_groups2):
         patch_groups1(patch_groups2): (list N x M x 4 x 2) Patch groups for N pairs
                                       of epipolar lines, each with M patches
     return:
-        matches: (numpy array N x M) Indices of corresponding patches in support image
+        match_groups: (numpy array N x M) Indices of corresponding patches in support image
     '''
+    match_groups = []
     for group1, group2 in zip(patch_groups1, patch_groups2):
         h, w = getLargestBound(group1 + group2)
         hog1 = getHOGDescriptor(img1, group1, h, w)
@@ -106,5 +110,6 @@ def matchPatches(img1, img2, patch_groups1, patch_groups2):
         #     concat = np.concatenate((img1, img2), axis=1)
         #     cv2.imshow("Frame", concat)
         #     k = cv2.waitKey(10) & 0xFF
-        print(matches)
+        match_groups.append(matches)
+    return match_groups
         

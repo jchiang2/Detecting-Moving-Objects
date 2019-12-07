@@ -50,6 +50,8 @@ def drawPatches(img, patch_groups):
     returns:
         img: Image with patches
     '''
+    if len(img.shape) == 2:
+        img = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
     for patches in patch_groups:
         for patch in patches:
             color = tuple(np.random.randint(0,255,3).tolist())

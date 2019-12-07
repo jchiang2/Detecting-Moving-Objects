@@ -16,12 +16,13 @@ def calcArea(img, patches):
         area: (int) Total area of the patches
     '''
     canvas = np.zeros(img.shape, "uint8")
-    for patch in patches:
+    for p in patches:
         p = p.reshape((-1,1,2))
         p = p.astype(int)
         cv2.fillPoly(canvas,[p],(255,255,255))
-    canvas_grey = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
-    area = cv2.countNonZero(canvas_grey)
+    if len(canvas.shape) == 3:
+        canvas = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+    area = cv2.countNonZero(canvas)
     return area
 
 def calcIoU(img, patch1, patch2):
@@ -211,7 +212,8 @@ def getPatches(cfg, img, points, isSupport=False):
         patches = []
         for j in range(len(pointsAlong_top)):
             if isSupport:
-                patch_var = [-1, 0, 1]
+                # patch_var = [-1, 0, 1]
+                patch_var = [0]
             else:
                 patch_var = [0]
             for var in patch_var:
