@@ -12,6 +12,14 @@ def parse_args():
         "--config-file", help="Path to config file", default="configs/default.yaml", type=str)
     return parser.parse_args()
 
+def resize(cfg, img):
+    resized = img.copy()
+    newsize = [int(x*cfg.RESIZE_RATIO) for x in img.shape]
+    newsize.reverse()
+    resized = cv2.resize(resized, dsize=tuple(newsize), interpolation=cv2.INTER_CUBIC)
+    return resized
+
+
 def drawLines(img1, img2, lines1, lines2):
     '''
     Visualize lines on images.

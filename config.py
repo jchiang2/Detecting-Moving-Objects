@@ -19,6 +19,7 @@ _C.SAVE_PATH = "results"
 # Image preprocessing
 # -----------------------------------------------------------------------------
 _C.RESIZE = False
+_C.RESIZE_RATIO = 0.4
 
 # -----------------------------------------------------------------------------
 # Patch extraction parameters
