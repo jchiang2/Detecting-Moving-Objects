@@ -112,4 +112,52 @@ def matchPatches(img1, img2, patch_groups1, patch_groups2):
         #     k = cv2.waitKey(10) & 0xFF
         match_groups.append(matches)
     return match_groups
-        
+
+def computeHOG(img, cell_size=(4, 4), block_size=(2, 2), n_bin=9):
+    '''
+    Compute HOG features and output as a image form
+    Arg
+        img: input image (W, H, 3)
+        cell_size: tuple of desired cell size (int, int) in pixels
+        block_size: tuple of desired block size (int, int) in number of cells
+        n_bin: number of orientation bins
+    Return
+        Computed HOG descriptor (H // cell[1], W // cell[0], n_bin)
+    '''
+    # winSize is the size of the image cropped to an multiple of the cell size
+    hog = cv2.HOGDescriptor(_winSize=(img.shape[1] // cell_size[1] * cell_size[1],
+                                  img.shape[0] // cell_size[0] * cell_size[0]),
+                        _blockSize=(block_size[1] * cell_size[1],
+                                    block_size[0] * cell_size[0]),
+                        _blockStride=(cell_size[1], cell_size[0]),
+                        _cellSize=(cell_size[1], cell_size[0]),
+                        _nbins=nbins)
+
+    n_cells = (img.shape[0] // cell_size[0], img.shape[1] // cell_size[1])
+    hog_feats = hog.compute(img)\
+               .reshape(n_cells[1] - block_size[1] + 1,
+                        n_cells[0] - block_size[0] + 1,
+                        block_size[0], block_size[1], nbins) \
+               .transpose((1, 0, 2, 3, 4))  # index blocks by rows first
+    # hog_feats now contains the gradient amplitudes for each direction,
+    # for each cell of its group for each group. Indexing is by rows then columns.
+
+    gradients = np.zeros((n_cells[0], n_cells[1], nbins))
+
+    # count cells (border cells appear less often across overlapping groups)
+    cell_count = np.full((n_cells[0], n_cells[1], 1), 0, dtype=int)
+
+    for off_y in range(block_size[0]):
+        for off_x in range(block_size[1]):
+            gradients[off_y:n_cells[0] - block_size[0] + off_y + 1,
+                  off_x:n_cells[1] - block_size[1] + off_x + 1] += \
+                hog_feats[:, :, off_y, off_x, :]
+            cell_count[off_y:n_cells[0] - block_size[0] + off_y + 1,
+                   off_x:n_cells[1] - block_size[1] + off_x + 1] += 1
+
+    # Average gradients
+    gradients /= cell_count
+
+    return gradients
+
+
