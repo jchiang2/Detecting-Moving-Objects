@@ -1,5 +1,7 @@
 import numpy as np
 import cv2
+from matplotlib import pyplot as plt
+'''
 my_img = np.zeros((400, 400, 3), "uint8")
 pts = np.array([[51,51],[51,100],[100,100],[100,51]])
 pts = pts.reshape((-1,1,2))
@@ -25,3 +27,12 @@ print(area)
 cv2.imshow('Window', my_img)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+'''
+
+img = cv2.imread('images/scene1/00001.jpg')
+hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+print(hsv.shape)
+hist = cv2.calcHist( [hsv], [0, 1], None, [180, 256], [0, 180, 0, 256] )
+print(hist.shape)
+plt.imshow(hist,interpolation = 'nearest')
+plt.show()
