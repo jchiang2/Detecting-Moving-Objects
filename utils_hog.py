@@ -163,3 +163,42 @@ def computeHOG(img, cell_size=(4, 4), block_size=(2, 2), n_bin=9):
     return gradients
 
 
+def pad_patch_HOG(img, pts, h, w, n_bin=9, cell_size=4):
+    '''
+    Pad cropped HOG discriptor patch
+    Args
+        img: target HOG descriptor image that will be cropped (h, w, n_bin)
+        pts: numpy array of patch coordinates (4, 2)
+        h: the padding height (>= than cropped image height)
+        w: the padding width (>= than cropped image width)
+        n_bin: bin size for HOG descriptor
+        cell_size: cell size for HOG descriptor
+    Return
+        cropped and padded patch
+    '''
+    h = h // cell_size
+    w = w // cell_size
+    pts = pts // cell_size
+
+    padded = np.zeros((h, w, n_bin), np.float)
+
+    rect = cv2.boundingRect(pts)
+    x,y,w,h = rect
+    cropped = img[y:y+h, x:x+w, :].copy()
+
+    # make mask
+    pts = pts - pts.min(axis=0)
+
+    mask = np.zeros(cropped.shape[:2], np.uint8)
+    cv2.drawContours(mask, [pts], -1, (1, 1, 1), -1, cv2.LINE_AA)
+
+    mask = np.tile(mask, (9, 1, 1))
+    mask = np.transpose(mask, (1, 2, 0))
+    # do bit-op
+    #  masked = cv2.bitwise_and(cropped, cropped, mask=mask)
+    masked = cropped * mask
+    padded[0:masked.shape[0], 0:masked.shape[1], :] = masked
+
+    return padded
+
+
