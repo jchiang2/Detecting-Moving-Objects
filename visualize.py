@@ -25,9 +25,11 @@ def main(args):
     overlap = cfg.OVERLAP
 
     ## Load images
+    IM1 = 0
+    IM2 = 1
     images = os.listdir(img_dir)
-    im_path1 = os.path.join(img_dir, images[3])
-    im_path2 = os.path.join(img_dir, images[4])
+    im_path1 = os.path.join(img_dir, images[IM1])
+    im_path2 = os.path.join(img_dir, images[IM2])
     print("Loading image:", im_path1)
     print("Loading image:", im_path2)
     img1 = cv2.imread(im_path1,0) # reference image # left image
@@ -35,17 +37,13 @@ def main(args):
     if cfg.RESIZE:
         img1 = resize(cfg, img1)
         img2 = resize(cfg, img2)
-        # img1_newsize = [int(x*cfg.RESIZE_RATIO) for x in img1.shape]
-        # img2_newsize = [int(x*cfg.RESIZE_RATIO) for x in img2.shape]
-        # img1 = cv2.resize(img1, dsize=tuple([int(x*cfg.RESIZE_RATIO) for x in img1.shape]), interpolation=cv2.INTER_CUBIC)
-        # img2 = cv2.resize(img2, dsize=tuple([int(x*cfg.RESIZE_RATIO) for x in img2.shape]), interpolation=cv2.INTER_CUBIC)
 
     # Epipolar data
-    ind1 = int(os.path.splitext(images[3])[0])
-    ind2 = int(os.path.splitext(images[4])[0])
+    ind1 = int(os.path.splitext(images[IM1])[0])
+    ind2 = int(os.path.splitext(images[IM2])[0])
     outfile = os.path.join(cfg.SAVE_PATH, "epipolar_data_{}_{}_{}.npz".format(os.path.basename(img_dir), ind1, ind2))
     ## Calculate matching feature points and epipoles
-    F, pts1, pts2, epipole1, epipole2 = loadData(cfg, img1, img2, outfile, debug=True)
+    F, pts1, pts2, epipole1, epipole2 = loadData(cfg, img1, img2, outfile, debug=False)
     
     ## Get radial lines (equally spaced) crossing epipole
     numLines = int(180 / angle)
@@ -69,17 +67,32 @@ def main(args):
     ## Perform HOG feature matching for patches
     match_groups = matchPatches(img1, img2, patch_groups1, patch_groups2)
 
+    ## Visualize matching
+    # for i, (patch, match) in enumerate(zip(patch_groups1[15], match_groups[0])):
+    #     img1 = drawPatch(img1, patch)
+    #     patch2 = patch_groups2[15][match]
+    #     img2 = drawPatch(img2, patch2)
+    #     concat = np.concatenate((img1,img2), axis=1)
+    #     print(concat.shape)
+    #     cv2.imshow("Frame", concat)
+    #     cv2.waitKey(0)
+
+
     ## Build pixel correspondence map
     corr_map = build_corr_map(img1, patch_groups1, match_groups)
+    corr_map = cv2.normalize(corr_map,  corr_map, 0, 255, cv2.NORM_MINMAX)
+
     # corr_map = cv2.cvtColor(corr_map,cv2.COLOR_GRAY2BGR)
+    plt.imshow(corr_map)
+    plt.show()
 
     ## Visualize all patches
     # img1 = drawPatches(img1, patch_groups1)
     # img2 = drawPatches(img2, patch_groups2)
     
-    plt.subplot(121),plt.imshow(img1)
-    plt.subplot(122),plt.imshow(img2)
-    plt.show()
+    # plt.subplot(121),plt.imshow(img1)
+    # plt.subplot(122),plt.imshow(img2)
+    # plt.show()
 
     return
 

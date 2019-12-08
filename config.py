@@ -25,5 +25,5 @@ _C.RESIZE_RATIO = 0.4
 # Patch extraction parameters
 # -----------------------------------------------------------------------------
 _C.HEIGHT = 100
-_C.ANGLE = 10
+_C.ANGLE = 10.0
 _C.OVERLAP = 0.66
