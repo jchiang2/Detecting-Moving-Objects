@@ -75,7 +75,7 @@ def getHOGDescriptor(img, patch_group, h, w):
         descriptor = hog.compute(padded)
         print("Patch {}:".format(i), end="\r", flush=True)
         descriptor_set.append(descriptor[:,0])
-
+    descriptor_set = np.array(descriptor_set)
     return descriptor_set
 
 def matchPatches(img1, img2, patch_groups1, patch_groups2):
@@ -91,6 +91,8 @@ def matchPatches(img1, img2, patch_groups1, patch_groups2):
     '''
     match_groups = []
     for group1, group2 in zip(patch_groups1, patch_groups2):
+        if len(group1) == 0:
+            continue
         h, w = getLargestBound(group1 + group2)
         hog1 = getHOGDescriptor(img1, group1, h, w)
         hog2 = getHOGDescriptor(img2, group2, h, w)

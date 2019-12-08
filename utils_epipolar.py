@@ -73,7 +73,11 @@ def getEpipoles(F, pts1, pts2):
     epipole2 = epipole2 / epipole2[2]
     return epipole1, epipole2
 
-def loadData(cfg, img1, img2, outfile=None):
+def epipoleSVD(M):
+    V = cv2.SVDecomp(M)[2]
+    return V[-1]/V[-1,-1]
+
+def loadData(cfg, img1, img2, outfile=None, debug=False):
     '''
     Loads epipolar data if available, otherwise calls operations to get data
     Args:
@@ -87,7 +91,7 @@ def loadData(cfg, img1, img2, outfile=None):
         epipole1: (numpy array 1 x 3) Epipole in reference image in homogenous coordinates
         epipole2: (numpy array 1 x 3) Epipole in support image in homogenous coordinates
     '''
-    if (os.path.exists(outfile)):  # Load data if available
+    if (os.path.exists(outfile) and not debug):  # Load data if available
         data = np.load(outfile)
         F, pts1, pts2, epipole1, epipole2 = data['F'], data['pts1'], data['pts2'], data['epipole1'], data['epipole2']
     else:  # Calculate data
