@@ -77,3 +77,28 @@ def getLargestDist(img, patch_groups):
         maxDist = np.amax(dist)
         largestDist = max(maxDist, largestDist)
     return largestDist
+
+def polyCoors(pts):
+    '''
+    Return pixel coordinates inside polygon defined by the given points
+    Arg
+        pts: numpy array of polygon vertices (n, 2)
+    Return
+        x coordinates (n,)
+        y coordinates (n,)
+    '''
+    rect = cv2.boundingRect(pts)
+    x,y,w,h = rect
+    mask = np.zeros((h, w), np.uint8)
+    offset = pts.min(axis=0)
+#    print(offset)
+    pts = pts - offset
+    cv2.drawContours(mask, [pts], -1, (1, 1, 1), -1, cv2.LINE_AA)
+#     plt.figure()
+#     plt.imshow(mask)
+#     plt.show()
+    coors = np.where(mask == 1)
+    coors_x = coors[0] + offset[1]
+    coors_y = coors[1] + offset[0]
+
+    return coors_x, coors_y
