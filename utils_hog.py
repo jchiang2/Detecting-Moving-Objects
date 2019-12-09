@@ -117,9 +117,8 @@ def matchPatches(img1, img2, patch_groups1, patch_groups2):
 
     match_groups = []
     for i, (group1, group2) in enumerate(zip(patch_groups1, patch_groups2)):
-        if len(group1) == 0:
-            continue
-        if len(group2) == 0:
+        if len(group1) == 0 or len(group2) == 0:
+            match_groups.append([])
             continue
         print("Line: ", i, end='\r', flush=True)
         h, w = getLargestBound(group1 + group2)
@@ -152,7 +151,6 @@ def matchPatches(img1, img2, patch_groups1, patch_groups2):
 
         match_groups.append(matches)
         # match_groups.append(cos_sim)
-
     
     return match_groups
 

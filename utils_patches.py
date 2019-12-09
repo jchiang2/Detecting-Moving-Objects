@@ -225,6 +225,7 @@ def getPatches(cfg, img, points, isSupport=False):
                 patch = np.array([pt1, pt2, pt3, pt4])
                 if isInImage(img, patch):
                     patches.append(patch)
+        
         patch_groups.append(patches)
 
     return patch_groups

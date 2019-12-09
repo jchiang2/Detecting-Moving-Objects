@@ -1,5 +1,7 @@
 IMAGE_PATH: "images/scene1"
 SAVE_PATH: "results"
+REFERENCE: 1
+SUPPORT: (2,3,4,5,6,7,8)
 RESIZE: False
 RESIZE_RATIO: 0.5
 HEIGHT: 50
