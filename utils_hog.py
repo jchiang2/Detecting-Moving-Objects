@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 import scipy.ndimage
+import os
+import pickle
 from utils import drawPatch
 
 def pad_patch(img, pts, h, w):
@@ -52,7 +54,7 @@ def getLargestBound(patches):
         h_max = max(h_max, h)
     return h_max, w_max
 
-def getHOGDescriptor(img, patch_group, h, w, hog):
+def getHOGDescriptor(img, patch_group, h, w):
     '''
     Calculates the HOG descriptor for a set of patches.
     Args:
@@ -69,6 +71,17 @@ def getHOGDescriptor(img, patch_group, h, w, hog):
 
     # HOG Parameters
     # hog = cv2.HOGDescriptor()
+    cellRes = 8
+    blockRes = 2
+    hog = cv2.HOGDescriptor(_winSize=(w//cellRes * cellRes, h//cellRes * cellRes),
+                        _blockSize=(w//cellRes * blockRes, h//cellRes * blockRes),
+                        _blockStride=(w//cellRes, h//cellRes),
+                        _cellSize=(w//cellRes, h//cellRes),
+                        _nbins=18)
+    # ASSERT
+    # (winSize.width - blockSize.width) % blockStride.width == 0 and
+    # (winSize.height - blockSize.height) % blockStride.height == 0
+
     # img = computeHOG(img)
 
     descriptor_set = []
@@ -79,7 +92,6 @@ def getHOGDescriptor(img, patch_group, h, w, hog):
         padded = pad_patch(img, patch, h, w)
         descriptor = hog.compute(padded)
         # print("Patch {}:".format(i), end="\r", flush=True)
-        print(descriptor.shape)
         descriptor_set.append(descriptor[:,0])
     descriptor_set = np.array(descriptor_set)
     return descriptor_set
@@ -103,26 +115,16 @@ def matchPatches(img1, img2, patch_groups1, patch_groups2):
     # img1 = computeHOG(img1)
     # img2 = computeHOG(img2)
 
-    hog1 = cv2.HOGDescriptor(_winSize=(img1.shape[1],img1.shape[0]),
-                        _blockSize=(img1.shape[1],img1.shape[0]),
-                        _blockStride=(img1.shape[1],img1.shape[0]),
-                        _cellSize=(img1.shape[1],img1.shape[0]),
-                        _nbins=9)
-    hog2 = cv2.HOGDescriptor(_winSize=(img2.shape[1],img2.shape[0]),
-                        _blockSize=(img2.shape[1],img2.shape[0]),
-                        _blockStride=(img2.shape[1],img2.shape[0]),
-                        _cellSize=(img2.shape[1],img2.shape[0]),
-                        _nbins=9)
-
     match_groups = []
-    for group1, group2 in zip(patch_groups1, patch_groups2):
+    for i, (group1, group2) in enumerate(zip(patch_groups1, patch_groups2)):
         if len(group1) == 0:
             continue
         if len(group2) == 0:
             continue
+        print("Line: ", i, end='\r', flush=True)
         h, w = getLargestBound(group1 + group2)
-        hog1 = getHOGDescriptor(img1, group1, h, w, hog1)
-        hog2 = getHOGDescriptor(img2, group2, h, w, hog2)
+        hog1 = getHOGDescriptor(img1, group1, h, w)
+        hog2 = getHOGDescriptor(img2, group2, h, w)
 
 
         hog1 = hog1 / np.linalg.norm(hog1, axis=1, keepdims=True)
@@ -146,9 +148,12 @@ def matchPatches(img1, img2, patch_groups1, patch_groups2):
         # matches = np.reshape(matches, (M, -1))
         # matches = np.argmax(matches, axis=0)
 
-        print(matches)
+        # print(matches)
 
         match_groups.append(matches)
+        # match_groups.append(cos_sim)
+
+    
     return match_groups
 
 def computeHOG(img, cell_size=(4, 4), block_size=(2, 2), n_bin=9):

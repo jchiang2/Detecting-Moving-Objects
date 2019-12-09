@@ -203,7 +203,7 @@ def getPatches(cfg, img, points, isSupport=False):
     overlap = cfg.OVERLAP
     patch_height = int(np.ceil((1 + overlap) / (1 - overlap)))
     patch_angle = int(np.ceil((1 + overlap) / (1 - overlap)))
-    
+
     patch_groups = []
     numOfLines = len(points)
     for i in range(numOfLines):

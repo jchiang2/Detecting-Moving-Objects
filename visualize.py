@@ -25,9 +25,9 @@ def main(args):
     overlap = cfg.OVERLAP
 
     ## Load images
-    IM1 = 0
-    IM2 = 1
-    images = os.listdir(img_dir)
+    IM1 = 8
+    IM2 = 9
+    images = sorted(os.listdir(img_dir))
     im_path1 = os.path.join(img_dir, images[IM1])
     im_path2 = os.path.join(img_dir, images[IM2])
     print("Loading image:", im_path1)
@@ -54,7 +54,7 @@ def main(args):
     lines2 = find_corr_lines(valid_pts, F)
     
     ## Visualize lines
-    img1, img2 = drawLines(img1, img2, lines1, lines2)
+    # img1, img2 = drawLines(img1, img2, lines1, lines2)
 
     ## Get vertices along lines
     patch_points1 = getVertices(img1, epipole1, lines1, height)
@@ -65,33 +65,45 @@ def main(args):
     patch_groups2 = getPatches(cfg, img2, patch_points2, isSupport=True)
 
     ## Perform HOG feature matching for patches
-    match_groups = matchPatches(img1, img2, patch_groups1, patch_groups2)
+    match_file = os.path.join('results/match_groups.pkl')
+    if os.path.isfile(match_file):
+        with open(match_file, 'rb') as f:
+            match_groups = pickle.load(f)
+    else:
+        match_groups = matchPatches(img1, img2, patch_groups1, patch_groups2)
+        with open(match_file, 'wb') as output:
+            pickle.dump(match_groups, output, -1)
 
     ## Visualize matching
-    # for i, (patch, match) in enumerate(zip(patch_groups1[15], match_groups[0])):
+    # for i, (patch, match) in enumerate(zip(patch_groups1[7], match_groups[0])):
     #     img1 = drawPatch(img1, patch)
-    #     patch2 = patch_groups2[15][match]
-    #     img2 = drawPatch(img2, patch2)
-    #     concat = np.concatenate((img1,img2), axis=1)
-    #     print(concat.shape)
-    #     cv2.imshow("Frame", concat)
-    #     cv2.waitKey(0)
+        # print(match)
+        # patch2 = patch_groups2[15][match]
+        # img2 = drawPatch(img2, patch2)
+        # concat = np.concatenate((img1,img2), axis=1)
+        # print(concat.shape)
+        # cv2.imshow("Frame", img1)
+        # k = cv2.waitKey(33)
+        # if k==27:    # Esc key to stop
+        #     break
 
 
     ## Build pixel correspondence map
     corr_map = build_corr_map(img1, patch_groups1, match_groups)
-    corr_map = cv2.normalize(corr_map,  corr_map, 0, 255, cv2.NORM_MINMAX)
-
+    corr_map = cv2.normalize(corr_map, corr_map, 0, 255, cv2.NORM_MINMAX)
+    # print(corr_map.shape)
     # corr_map = cv2.cvtColor(corr_map,cv2.COLOR_GRAY2BGR)
-    plt.imshow(corr_map)
-    plt.show()
-
+    
     ## Visualize all patches
     # img1 = drawPatches(img1, patch_groups1)
     # img2 = drawPatches(img2, patch_groups2)
     
-    # plt.subplot(121),plt.imshow(img1)
-    # plt.subplot(122),plt.imshow(img2)
+    plt.subplot(121),plt.imshow(img1)
+    plt.subplot(122),plt.imshow(corr_map)
+    plt.show()
+
+    # img = calcWeight(patch_groups1[0][10])
+    # plt.imshow(img)
     # plt.show()
 
     return

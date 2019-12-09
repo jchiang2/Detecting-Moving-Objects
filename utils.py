@@ -82,4 +82,25 @@ def drawPatch(img, patch):
     patch = np.array(patch, np.int32)
     patch = patch.reshape((-1,1,2))
     cv2.fillPoly(img,[patch],color)
+
     return img
+
+def calcWeight(patch):
+    patch = np.array(patch, np.int32)
+    x,y,w,h = cv2.boundingRect(patch)
+    patch -= np.array([x, y])
+    patch_center = np.sum(patch, axis=0) / 4
+
+    patch = patch.reshape((-1,1,2))
+    cropped = np.zeros((h, w))
+    cv2.fillPoly(cropped,[patch],1)
+    pixels = np.argwhere(cropped==1)
+
+    dist = np.exp(-np.sum((pixels - patch_center[::-1])**2 / 6000, axis=1))
+    # dist = 1 / np.sum((pixels - patch_center[::-1])**2, axis=1)
+
+
+    cropped[pixels[:,0], pixels[:,1]] *= dist
+
+    return cropped
+
